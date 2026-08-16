@@ -10,6 +10,14 @@ My Company Brain 是一套面向企业团队的多知识库平台。它把文档
 - 知识助理：基于检索证据进行问答、任务处理和来源展示。
 - 数据层：一套 PostgreSQL 实例内的 6 个业务数据库，以及 Neo4j 图数据库。
 
+## 当前状态
+
+当前代码已经包含 Web、统一 API、Agent Gateway、三条知识链路、平台业务层和 Compose 部署定义。状态证据按四级记录：已实现、已自动验证、已真实环境验证、待验证；“已实现”只表示代码和接口已存在，不等同于发布验收。
+
+截至当前快照，命名扫描、Bun 测试、TypeScript/Python 检查均有通过记录，九个 Compose 服务的状态也已在本机观察到（八个持续服务 healthy，迁移服务退出码为 0）。三条链路带真实资料的检索引用、MiniMax 端到端调用、浏览器全路由与权限矩阵、验收 notebook 仍需单独验证。
+
+详细的提交、命令、服务状态和待验证清单见 [当前产品状态](docs/CURRENT_STATUS.md)。
+
 ## 运行要求
 
 - Docker Desktop，支持 Docker Compose v2。
@@ -41,7 +49,7 @@ chmod 600 deploy/compose/.env
 deploy/compose/start.sh
 ```
 
-脚本会构建镜像、初始化数据库、准备基础业务数据并等待 Web 服务健康。完成后打开：
+脚本会构建镜像、初始化数据库、准备基础业务数据并等待 Web 服务健康。看到健康状态后打开：
 
 ```text
 http://127.0.0.1:3000
@@ -85,7 +93,7 @@ docker compose --project-name mcb \
 - 脚本拒绝启动：检查 `.env` 是否仍含 `CHANGE_ME` 或 `change-me-internal-token`。
 - 构建失败：确认 Docker Desktop 已启动、网络可下载基础镜像和依赖，并检查磁盘空间。
 - 迁移失败：查看 `migrate` 服务日志，不要手动修改数据库结构。
-- 页面不可用：先运行状态命令，确认各服务为 `healthy`。
+- 页面不可用：先运行状态命令，确认依赖服务为 `healthy`，再查看对应日志。
 
 ## 停止与重置
 

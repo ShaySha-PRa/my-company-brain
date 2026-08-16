@@ -1,82 +1,92 @@
-# 数据库底座：成员运行说明
+# 数据库底座
 
-本目录交付产品项目的数据库底座：一个 PostgreSQL 17 实例、一个 Neo4j 5.26.28 实例，以及一次性 `migrate` 初始化服务。它不包含 Web、API、Agent Gateway 或三个 RAG 业务服务；完整应用 Compose 在 M3 完成。
+本目录提供可独立运行的 PostgreSQL 17 + pgvector/pg_trgm/AGE、Neo4j + APOC 和一次性 migrate 初始化服务。它用于数据库迁移、权限隔离和模块级诊断；完整产品运行请使用 [本地 Compose 部署](../../docs/deployment/start.md)。数据库底座启动成功不表示 Web、API、Agent 或三条知识链路已经完成真实验收。
 
-## 第一次启动
+## 1. 范围与数据库
 
-只需安装 Docker Engine 和 Docker Compose：
+底座 Compose（deploy/database/compose.yml）包含 postgres、neo4j 和 stage2 profile 下的一次性 migrate：
 
-```bash
+~~~text
+PostgreSQL  127.0.0.1:55432（可由 .env.docker.local 覆盖）
+Neo4j      127.0.0.1:7474 / 127.0.0.1:7687
+~~~
+
+迁移会创建六个 PostgreSQL database 和对应运行账号：
+
+~~~text
+mcb_identity_db       mcb_identity_app
+mcb_core_db           mcb_platform_app
+mcb_nano_db           mcb_nano_app
+mcb_traditional_db    mcb_traditional_app
+mcb_graph_db          mcb_graph_app
+mcb_agent_db          mcb_agent_app
+~~~
+
+mcb_migrator 只由迁移服务使用；bootstrap 账号只负责创建 database、角色和扩展。GraphRAG 运行账号在自己的 lightrag schema 中拥有迁移所需的受限建表能力，但不能建库、安装扩展或连接其他库。对象和索引以 database-contract.json 为准。
+
+## 2. 第一次启动
+
+~~~sh
 ./deploy/database/init-env.sh
 ./deploy/database/up.sh
 ./deploy/database/status.sh
-```
+~~~
 
-`init-env.sh`生成权限为 `0600` 的本地 `.env.docker.local`，不会覆盖已有文件。`up.sh`启动两种数据库，等待healthcheck，运行一次migrate，并原样返回migrate退出码。失败时数据库保留在后台，按提示查看migrate日志。
+init-env.sh 创建权限为 0600 的 .env.docker.local，不覆盖现有文件。up.sh 启动两个数据服务、等待 healthcheck、重建并等待 migrate，最后返回迁移原始退出码。迁移失败时数据库保持运行，便于查看日志。
 
-同一volume再次执行`./deploy/database/up.sh`就是幂等重跑：六个数据库不会重复创建，默认管理员仍只有一个。
+同一组 volume 再次运行 up.sh 是幂等迁移，不会覆盖业务数据或重复管理员。
 
-## 地址：宿主与容器不要混用
+## 3. 配置和连接
 
-| 服务 | 从宿主运行应用 | M3 Compose 内部服务 |
-|---|---|---|
-| PostgreSQL | `localhost:55432` | `postgres:5432` |
-| Neo4j Browser | `http://localhost:7474` | 不适用 |
-| Neo4j Bolt | `bolt://localhost:7687` | `bolt://neo4j:7687` |
+宿主程序使用：
 
-宿主应用的数据库URL示例：
+~~~text
+postgresql://mcb_identity_app:<PASSWORD>@localhost:55432/mcb_identity_db
+postgresql://mcb_platform_app:<PASSWORD>@localhost:55432/mcb_core_db
+postgresql://mcb_nano_app:<PASSWORD>@localhost:55432/mcb_nano_db
+postgresql://mcb_traditional_app:<PASSWORD>@localhost:55432/mcb_traditional_db
+postgresql://mcb_graph_app:<PASSWORD>@localhost:55432/mcb_graph_db
+postgresql://mcb_agent_app:<PASSWORD>@localhost:55432/mcb_agent_db
+~~~
 
-```text
-postgresql://mcb_identity_app:<IDENTITY_APP_PASSWORD>@localhost:55432/mcb_identity_db
-postgresql://mcb_platform_app:<PLATFORM_APP_PASSWORD>@localhost:55432/mcb_core_db
-postgresql://mcb_nano_app:<NANO_APP_PASSWORD>@localhost:55432/mcb_nano_db
-postgresql://mcb_agent_app:<AGENT_APP_PASSWORD>@localhost:55432/mcb_agent_db
-postgresql://mcb_traditional_app:<TRADITIONAL_APP_PASSWORD>@localhost:55432/mcb_traditional_db
-postgresql://mcb_graph_app:<GRAPH_APP_PASSWORD>@localhost:55432/mcb_graph_db
-```
+同一 Compose 网络内使用 postgres:5432，容器不能用 localhost 访问另一个容器。Neo4j 宿主地址为 http://localhost:7474 和 bolt://localhost:7687；网络内使用 bolt://neo4j:7687。
 
-M3把应用放入同一Compose网络时，只把host改为`postgres:5432`；容器内不能使用`localhost`访问另一个容器。
+## 4. 状态、日志和停止
 
-## 三层账号与权限效果
-
-- bootstrap账号只用于创建数据库账号、六个database和扩展。
-- `mcb_migrator`只在一次性migrate服务中执行DDL。
-- 六个`mcb_*_app`是业务运行账号，各自只能连接自己的database并做正常CRUD。
-- 唯一例外是`mcb_graph_app`可以在`mcb_graph_db.lightrag`中执行LightRAG幂等初始化所需的受限CREATE；它仍不能建库、装扩展或连接其他五库。
-
-每次`up.sh`运行的postcheck会验证六库、扩展、核心表、管理员唯一性，以及本库正向访问和跨库/建库/普通建表负例。看到migrate `Exited (0)`才表示数据库初始化完成。
-
-## 停止、查看与重置
-
-停止容器但保留数据：
-
-```bash
-./deploy/database/stop.sh
-```
-
-查看数据库和migrate状态：
-
-```bash
+~~~sh
 ./deploy/database/status.sh
-```
+./deploy/database/stop.sh
 
-预览reset目标（不会删除）：
+docker compose -p mcb-m2b \
+  --env-file deploy/database/.env.docker.local \
+  -f deploy/database/compose.yml --profile stage2 logs migrate
+~~~
 
-```bash
+成功初始化的标志是 migrate 退出码 0，postgres 和 neo4j 为 healthy。仅看到容器运行或端口可连接，不代表所有迁移对象和权限负例检查都完成；验证脚本输出才是对应证据。
+
+## 5. 受限重置
+
+先预览：
+
+~~~sh
 ./deploy/database/reset.sh
-```
+~~~
 
-确实要清空本产品的Docker数据库时，必须逐字确认项目名：
+确认后：
 
-```bash
+~~~sh
 ./deploy/database/reset.sh --confirm-reset mcb-m2b
-```
+~~~
 
-reset只允许删除Compose项目`mcb-m2b`及两个专名volume：
+脚本只允许删除 Compose 项目 mcb-m2b 的 mcb_m2b_postgres_data、mcb_m2b_neo4j_data 和网络，不执行全局 prune，不连接宿主 PostgreSQL，也不处理其他卷。重置会使底座业务数据不可恢复。
 
-```text
-mcb_m2b_postgres_data
-mcb_m2b_neo4j_data
-```
+## 6. 与主栈的关系
 
-它不会执行任何prune，不会连接、导入或删除宿主PostgreSQL，也不会操作外部卷。reset后再次执行`up.sh`会得到全新空底座。
+数据库底座和 deploy/compose 主栈使用不同 Compose 文件、端口和资源命名，不能混用 volume 或 .env：
+
+| 用途 | Compose | PostgreSQL | Neo4j |
+| --- | --- | --- | --- |
+| 数据库诊断/迁移 | deploy/database/compose.yml | 55432 | 7474/7687 |
+| 完整产品 | deploy/compose/compose.member.yml + build overlay | 容器内；构建观察 15432 | 容器内；构建观察 17474/17687 |
+
+当前实现和各项验收证据的快照见 [docs/CURRENT_STATUS.md](../../docs/CURRENT_STATUS.md)。

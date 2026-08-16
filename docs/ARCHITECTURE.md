@@ -1,477 +1,121 @@
 # My Company Brain 顶层架构
 
-版本：v0.1
-状态：草案
-范围：平台级架构骨架，不展开各 RAG 模块内部目录。
+本文描述当前代码库的长期架构边界。实现、自动化检查和真实环境验收属于不同证据层级，具体快照见 [docs/CURRENT_STATUS.md](CURRENT_STATUS.md)。
 
----
+## 1. 产品形态
 
-## 1. 核心原则
+My Company Brain 是由三条相互独立的知识链路、平台业务层、统一 API、Agent Gateway、Web 前端和共享基础设施组成的多知识库链路平台。
 
-My Company Brain 是一个多知识库链路平台，而不是单一 RAG 项目。
+~~~text
+浏览器
+  ├─ Web (Next.js, :3000)
+  │    ├─ /api/platform/* ──► API (:3101)
+  │    └─ /api/agent/* ─────► Agent Gateway (:3002)
+  └─ API (:3101)
+       ├─ 身份认证与用户上下文
+       ├─ 平台业务路由 ───────► Platform store / mcb_core_db
+       └─ 模块代理 ───────────► Nano / Traditional / Graph HTTP
 
-系统包含三条相互独立的知识库链路：
+Agent Gateway (:3002)
+  ├─ global 知识助理 ───────► 平台全域检索与三链路融合
+  └─ module 会话 ───────────► 受保护模块 HTTP Tools
 
-```txt
-传统 RAG
-GraphRAG
-Nano Brain
-```
+知识链路
+  ├─ Nano Brain (:8100) ───► mcb_nano_db
+  ├─ Traditional RAG (:8101) ► mcb_traditional_db
+  └─ GraphRAG (:8102) ─────► mcb_graph_db + Neo4j
+~~~
 
-三条链路共享：
+主 Compose 文件是 deploy/compose/compose.member.yml，构建验证通过 compose.build.yml 叠加；一次性 migrate 服务先完成数据库和管理员初始化，再允许业务容器启动。
 
-- 用户身份。
-- 是否管理员。
-- 唯一前端入口。
-- 统一后端入口。
-- Agent 会话入口。
+## 2. 服务与职责
 
-三条链路不共享：
+| 服务 | 实现位置 | 主要职责 | 数据边界 |
+| --- | --- | --- | --- |
+| Web | apps/web | 登录、知识工作台、场景、全域问答、管理员界面；只通过代理访问后端 | 不直连模块库 |
+| API | apps/api | Bearer 认证、请求归一化、平台路由、模块 HTTP 转发 | 身份和平台 store；不打开三条模块数据库 |
+| Gateway package | packages/gateway | 注册模块、解析 HTTP 地址、注入内部头、基础错误映射 | 不持有业务数据 |
+| Agent Gateway | apps/agent-gateway | LangChain/LangGraph、SSE、会话/run/tool-call 审计、checkpoint、全域检索编排 | mcb_agent_db；调用受保护模块 HTTP Tools |
+| Platform | packages/platform | 场景、任务、知识对象、资料请求、全域会话、审计、运行配置、重排 | mcb_core_db；通过模块 HTTP 调用知识链路 |
+| Nano Brain | modules/nano-brain | 知识页面、事实、链接图、raw document、compile、dream、检索和问答 | mcb_nano_db + pgvector |
+| Traditional RAG | modules/traditional-rag | 文档/表格、解析、切片、结构化行查询、三路召回、作业 | mcb_traditional_db + 上传文件卷 |
+| GraphRAG | modules/graph-rag | 文档、实体关系、LightRAG、图谱统计/治理和导出 | mcb_graph_db + Neo4j workspace |
+| PostgreSQL | Compose postgres | 六个逻辑数据库和迁移 | mcb_postgres_data |
+| Neo4j | Compose neo4j | GraphRAG 实体关系图和 APOC | mcb_neo4j_data / mcb_neo4j_plugins |
 
-- 原始文档。
-- 上传链路。
-- 处理链路。
-- 检索链路。
-- 维护链路。
-- 模块内部权限模型。
-- 模块内部数据结构。
+服务是否完成真实启动、模型调用和浏览器验收，不由本架构文档推断；以状态页中的命令和输出为准。
 
----
+## 3. 请求与权限边界
 
-## 2. 管理员原则
+### 3.1 Web 与统一 API
 
-系统只有一个管理员层级。
+浏览器访问 Web 的 /api/platform/* 和 /api/agent/*。Web 服务端代理转发到 API 或 Agent Gateway，不暴露数据库 URL 或内部 token。
 
-管理员拥有对所有知识库链路的完整管理权限，包括：
+API 在 apps/api 中完成身份校验、用户上下文归一化和路由选择：
 
-- 管理传统 RAG 的知识库、文档、索引和维护任务。
-- 管理 GraphRAG 的文档、实体、关系、图谱和维护任务。
-- 管理 Nano Brain 的私有 source、公共 source、事实审核、知识图谱和 dream 任务。
-- 管理用户。
-- 管理系统配置。
+- /auth/* 访问身份库。
+- /platform/* 调用平台 store，平台 store 是 mcb_core_db 的数据所有者。
+- /nano/*、/traditional/*、/graph/* 通过 packages/gateway 转发到对应模块。
+- /health、/modules、/modules/health 提供服务和模块状态入口。
 
-系统不设计：
+API 不 import 三模块 core，也不连接三模块数据库。转发模块时 Gateway 注入 x-mcb-internal-token、x-mcb-user-id、x-mcb-username、x-mcb-is-admin。模块先验证内部 token，再在自己的 core/SQL 边界过滤 source、document、page 和 graph 资源权限。
 
-- 链路管理员。
-- 局部管理员。
-- 分级管理员。
-- 只管理某一个 RAG 模块的管理员。
+### 3.2 Agent Gateway
 
-普通用户在不同 RAG 模块中可以拥有不同业务权限，但这些权限不构成管理员层级。
+Agent 会话支持 nano-brain、traditional-rag、graph-rag 和 global 四种 profile。会话、run、checkpoint、tool-call 的持久化边界是 mcb_agent_db。
 
----
+三个模块 profile 使用 Agent Gateway 构造的受保护 LangChain HTTP Tools；三个模块也提供可独立启动的 stdio MCP Server，作为外部 Agent/MCP 适配器。global profile 使用平台级全域知识工具，返回引用和上下文追踪，并通过平台 store 写入全域会话。
 
-## 3. 顶层目录骨架
+管理员审核辅助 Agent 只允许管理员进入 Nano Brain 审核会话；最终 approve/reject/request_changes 必须由管理员显式操作。
 
-```txt
-My Company Brain/
-  README.md
+## 4. 三条知识链路
 
-  docs/
-    ARCHITECTURE.md        # 平台级架构
+### Nano Brain
 
-  apps/
-    web/                   # 唯一前端
-    api/                   # 面向前端的统一后端
-    agent-gateway/         # 面向 Agent 的统一入口
+HTTP 使用 /nano/*，MCP 工具使用 nano_*。能力包括 private/public source、知识页面和 chunks、links/backlinks、capture、raw document/compile state、search/ask、事实提交与审核、dream runs/status。
 
-  packages/
-    identity/              # 用户体系
-    gateway/               # 面向 HTTP API 的模块分发
-    contracts/             # 平台与模块之间的契约
+### Traditional RAG
 
-  modules/
-    nano-brain/            # Nano Brain 完整链路
-      docs/
-        PRD.md
-        ARCHITECTURE.md
+HTTP 使用 /traditional/*，MCP 工具使用 traditional_*。文档上传以后台 job 处理，支持文本与表格资料、文档/表格查询、结构化行检索、chunk 查询和归档/删除。模块内组合关键词、trigram 字面和向量路径；平台全域问答可选重排跨模块候选。
 
-    traditional-rag/       # 传统 RAG 完整链路，Python
-      docs/
-        PRD.md
-        ARCHITECTURE.md
+### GraphRAG
 
-    graph-rag/             # GraphRAG 完整链路，Python
-      docs/
-        PRD.md
-        ARCHITECTURE.md
+HTTP 使用 /graph/*，MCP 工具使用 graph_*。支持 source、文本/文件文档、search/ask、图谱统计、实体关系治理、画像/子图和导出。每个 source 对应隔离 workspace；GraphRAG core 负责 PostgreSQL 记录和 Neo4j 图访问。
 
-  infra/                   # 基础设施配置
-```
+## 5. 模型与检索配置
 
-说明：只有完整 RAG 链路模块需要自己的 PRD 和架构文档。普通目录不单独维护 PRD。
+平台统一使用 MiniMax：
 
----
-
-## 4. 顶层分层
-
-```txt
-前端层
-  → apps/web
-
-统一后端层
-  → apps/api
-
-Agent 接入层
-  → apps/agent-gateway
-
-平台共享层
-  → packages/identity
-  → packages/gateway
-  → packages/contracts
-
-RAG 模块层
-  → modules/nano-brain
-  → modules/traditional-rag
-  → modules/graph-rag
-
-基础设施层
-  → infra
-```
-
----
-
-## 5. 前端设计
-
-系统只有一个前端仓库：
-
-```txt
-apps/web
-```
-
-技术栈：Next.js。
-
-前端根据登录用户身份展示不同面板：
-
-```txt
-普通用户面板
-管理员面板
-```
-
-前端还需要支持用户选择当前对话使用的 RAG 模块：
-
-```txt
-传统 RAG
-GraphRAG
-Nano Brain
-```
-
-用户选择模块后，Agent 会话绑定该模块。
-
-平台支持跨模块智能路由和全域结果融合，具体策略由 Agent Gateway 与平台层负责。
-
----
-
-## 6. 后端 API 设计
-
-统一后端入口位于：
-
-```txt
-apps/api
-```
-
-技术栈：Bun / TypeScript。
-
-包管理：Bun workspaces。
-
-HTTP 框架：Hono。
-
-职责：
-
-- 处理前端请求。
-- 获取当前用户身份。
-- 判断是否管理员。
-- 调用平台 gateway。
-- 将请求分发给对应 RAG 模块。
-
-禁止：
-
-- 直接操作 RAG 模块数据库。
-- 绕过 RAG 模块内部权限。
-- 在 API 层实现具体检索逻辑。
-- 在 API 层混合不同 RAG 模块的业务数据。
-
----
-
-## 7. Agent Gateway 设计
-
-Agent Gateway 位于：
-
-```txt
-apps/agent-gateway
-```
-
-Agent Gateway 基于 LangChain 与 LangGraph，统一编排知识链路并持久化运行状态：
-
-- 各 RAG 模块必须提供 MCP Server。
-- Agent 层通过 MCP Server 调用各 RAG 模块。
-- Agent 层不直接访问模块数据库。
-- Agent 层不绕过模块内部权限。
-- Agent 调用审计由网关持久化，并在管理员审计界面提供查看能力。
-
-Agent 会话、工具选择、模块切换、上下文管理由 LangGraph 状态和 checkpoint 统一管理。
-
----
-
-## 8. RAG 模块接口原则
-
-每个 RAG 模块对外提供两类正式接口：
-
-```txt
-HTTP API      # 给传统前后端使用
-MCP Server    # 给 Agent 使用
-```
-
-不要求提供 CLI。
-
-CLI 可以作为开发调试工具存在，但不作为产品接口。
-
-每个模块内部必须保证：
-
-```txt
-模块核心服务
-  → HTTP API
-  → MCP Server
-```
-
-HTTP API 和 MCP Server 必须调用同一套模块核心服务，不能各自实现业务逻辑。
-
----
-
-## 9. RAG 模块边界
-
-### 9.1 Nano Brain
-
-位置：
-
-```txt
-modules/nano-brain
-```
-
-职责：
-
-- 私有 source。
-- 公共 source。
-- page pipeline。
-- chunk。
-- embedding。
-- 知识图谱。
-- 事实提交与审核。
-- dream。
-- Nano Brain 内部权限。
-
-运行时建议：TypeScript。
-
-数据库建议：PostgreSQL + pgvector。
-
-### 9.2 传统 RAG
-
-位置：
-
-```txt
-modules/traditional-rag
-```
-
-职责：
-
-- 文档上传。
-- 文档解析。
-- chunk。
-- embedding。
-- 向量检索。
-- 问答。
-- 传统 RAG 内部权限。
-
-运行时：Python。
-
-服务框架建议：FastAPI。
-
-数据库不做统一要求，可根据传统 RAG 链路需要独立选择。
-
-### 9.3 GraphRAG
-
-位置：
-
-```txt
-modules/graph-rag
-```
-
-职责：
-
-- 文档上传。
-- 实体抽取。
-- 关系抽取。
-- 图谱构建。
-- 社区摘要。
-- 图谱增强检索。
-- GraphRAG 内部权限。
-
-运行时：Python。
-
-服务框架建议：FastAPI。
-
-数据库不做统一要求，可根据 GraphRAG 链路需要独立选择。
-
----
-
-## 10. packages 职责
-
-### 10.1 identity
-
-位置：
-
-```txt
-packages/identity
-```
-
-职责：
-
-- 用户注册。
-- 登录认证。
-- 会话。
-- 管理员标记。
-- 当前用户上下文。
-
-不负责：
-
-- Nano Brain source 权限。
-- 传统 RAG collection 权限。
-- GraphRAG 图谱权限。
-
-### 10.2 gateway
-
-位置：
-
-```txt
-packages/gateway
-```
-
-职责：
-
-- 面向 HTTP API 的模块分发。
-- 根据目标模块调用对应 RAG 模块 HTTP API。
-- 归一化基础响应格式。
-
-不负责：
-
-- 自动选择模块。
-- 跨模块检索融合。
-- 直接访问模块数据库。
-
-### 10.3 contracts
-
-位置：
-
-```txt
-packages/contracts
-```
-
-职责：
-
-- 用户上下文类型。
-- 模块标识。
-- 基础请求和响应类型。
-- 模块健康状态类型。
-- Agent 会话中的 active_module 类型。
-
-contracts 只能定义薄契约，不能把三条 RAG 链路强行抽象成同一种内部模型。
-
----
-
-## 11. 调用链路
-
-### 11.1 前端链路
-
-```txt
-apps/web
-  → apps/api
-  → packages/identity
-  → packages/gateway
-  → RAG 模块 HTTP API
-```
-
-### 11.2 Agent 链路
-
-```txt
-Agent
-  → apps/agent-gateway
-  → 根据 active_module 选择模块
-  → RAG 模块 MCP Server
-```
-
----
-
-## 12. 共享 embedding 配置
-
-embedding 配置属于平台级共享配置，后续传统 RAG、GraphRAG 和 Nano Brain 都应优先读取同一组环境变量：
-
-```txt
-EMBEDDING_PROVIDER=minimax-native
+~~~text
+AGENT_BASE_URL=https://api.minimaxi.com/v1
+AGENT_MODEL=MiniMax-M2.7
 EMBEDDING_BASE_URL=https://api.minimaxi.com/v1
-EMBEDDING_API_KEY=<secret>
 EMBEDDING_MODEL=embo-01
-```
+EMBEDDING_DIMENSIONS=1024
+~~~
 
-要求：
+Embedding 使用原生 texts/type 请求，1536 维结果截断到 1024 维并做 L2 归一化。DASHSCOPE_API_KEY 缺失时平台跳过重排并保留召回；MINERU_API_KEY 缺失时 PDF 解析降级。模型调用是否成功属于真实环境证据，不由配置存在推断。
 
-- `EMBEDDING_API_KEY` 只能写入本地 `.env` 或部署环境变量，禁止提交到 Git。
-- `.env.example` 只保留占位符。
-- 各 RAG 模块不得硬编码 embedding 模型和密钥。
-- 各 RAG 模块可以有自己的数据库，但 embedding provider 配置默认共享；请求使用 MiniMax 原生 `texts` 与 `type` 字段。
+Traditional RAG 三路召回在模块内串行执行；Nano Brain 的关键词、向量、事实和链接扩展由 Nano core 处理；GraphRAG 的模式路由和 LightRAG 图检索由 GraphRAG core 处理；全域问答在平台层统一 scope、引用和可选重排。
 
----
+## 6. 数据库与稳定约束
 
-## 13. 数据库原则
+PostgreSQL 一个实例承载六个数据库：
 
-平台不强制所有 RAG 模块使用同一种数据库。
+~~~text
+mcb_identity_db      身份、组织、团队、会话
+mcb_core_db          平台场景、任务、知识对象、审计、全域会话
+mcb_nano_db          Nano Brain
+mcb_traditional_db   Traditional RAG
+mcb_graph_db         GraphRAG PostgreSQL
+mcb_agent_db         Agent、run、tool-call、LangGraph checkpoint
+~~~
 
-项目采用一个 PostgreSQL 实例、多 database 隔离。初始化脚本负责创建 database、启用必要扩展并写入基础配置。
+运行账号按库分离；迁移账号只由 migrate 服务使用。GraphRAG 另使用 Neo4j。Compose service_internal 网络不向宿主发布业务端口；构建模式的 dev-ports overlay 仅以 127.0.0.1 发布数据库观察端口。
 
-首个管理员通过启动脚本创建，脚本从环境变量或交互输入读取用户名和密码。
-
-数据库划分：
-
-```txt
-mcb_identity_db
-mcb_nano_db
-mcb_traditional_db
-mcb_graph_db
-```
-
-原则：
-
-- 用户体系和平台层使用独立 database。
-- Nano Brain 使用独立 database，建议 PostgreSQL + pgvector。
-- 传统 RAG 可以根据需要使用 PostgreSQL、向量数据库或其他存储。
-- GraphRAG 可以根据需要使用图数据库、关系型数据库、向量数据库或组合存储。
-- 统一 API、Agent Gateway 和 packages 不允许依赖某个模块的具体数据库实现。
-- RAG 模块只能通过 HTTP API 和 MCP Server 对外暴露能力。
-
----
-
-## 14. 当前运行范围
-
-My Company Brain 以完整产品运行，不依赖按能力拆分的临时运行模式。Docker Compose 默认编排 Web、统一 API、Agent Gateway、Nano Brain、Traditional RAG、GraphRAG、PostgreSQL 与 Neo4j，并由迁移任务建立六个隔离业务数据库。
-
-三条知识链路均提供独立的 HTTP 与 MCP 能力：Nano Brain 负责知识页面、事实和链接；Traditional RAG 负责文档、表格和三路串行召回；GraphRAG 负责实体、关系和图证据。平台层负责跨链路场景、任务、全域问答、重排与审计，前端只访问统一 API 与 Agent Gateway。
-
-模型通道统一使用 MiniMax：聊天使用 OpenAI 兼容接口，embedding 使用原生 `texts` 请求并归一化到 1024 维。缺少可选的重排或 PDF 解析密钥时，系统保留召回结果或跳过对应解析，不阻断其他功能。
-
-密码必须使用 bcrypt 或 argon2 存储，禁止明文保存。前端登录后使用 Bearer Token 访问统一 API；模块只接受带内部令牌和用户上下文的服务请求。
-
-## 15. 产品运行约束
-
-1. 只有一个前端仓库。
-2. 管理员只有一个层级，并拥有所有知识库链路的完整管理权限。
-3. 每个 RAG 模块都是独立完整链路。
-4. 每个 RAG 模块拥有独立上传、处理、检索和维护链路。
-5. 每个 RAG 模块提供 HTTP API 和 MCP Server。
-6. CLI 只作为开发调试工具，不作为产品接口。
-7. Agent 层基于 LangChain 与 LangGraph，使用 MCP 访问各知识链路。
-8. RAG 模块内部权限由模块自己判断。
-9. 统一 API 和 Agent Gateway 不允许直接操作模块数据库。
-10. 平台不强制所有 RAG 模块使用同一种数据库。
-11. embedding provider 使用平台级共享环境变量，禁止在代码中硬编码密钥或模型。
-12. 本地开发和部署均使用统一的 Compose 服务边界。
-13. 三条知识链路都必须保持独立存储、独立权限过滤与独立检索实现。
-14. 用户、组织、团队和管理员权限由身份库与模块查询边界共同保证。
+1. Web 只访问统一 API 和 Agent Gateway。
+2. API 不访问三模块数据库；平台数据由 Platform store 负责。
+3. 模块 HTTP/MCP adapter 复用同一模块 core，权限在模块查询边界执行。
+4. 六个 PostgreSQL 数据库和 GraphRAG workspace 保持隔离。
+5. 内部 token 使用本地随机值，至少 32 字符；.env 不进版本库。
+6. 状态页中的已实现、已自动验证、已真实环境验证、待验证不互相替代。

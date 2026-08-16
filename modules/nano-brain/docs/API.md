@@ -327,7 +327,7 @@ Nano Brain Dream 是后台整理与巡检能力，不是 LLM 自动写作能力�
       "chunk_text": "...",
       "content_hash": "...",
       "embedding_model": "embo-01",
-      "embedding_dimensions": 4096,
+      "embedding_dimensions": 1024,
       "created_at": "2026-06-02T00:00:00.000Z",
       "updated_at": "2026-06-02T00:00:00.000Z"
     }

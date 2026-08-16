@@ -169,7 +169,7 @@ FastAPI/Pydantic 参数校验错误使用框架默认 422 响应。
     "segments": []
   },
   "embedding_model": "embo-01",
-  "embedding_dimensions": 4096,
+  "embedding_dimensions": 1024,
   "created_at": "2026-06-04T09:00:00+00:00"
 }
 ```
@@ -540,7 +540,7 @@ Query：
         "snippet": "命中片段",
         "metadata": {},
         "embedding_model": "embo-01",
-        "embedding_dimensions": 4096,
+        "embedding_dimensions": 1024,
         "created_at": "2026-06-04T09:00:00+00:00"
       },
       "score": 0.0325,
@@ -577,7 +577,7 @@ Query：
   "diagnostics": [
     { "type": "keyword", "status": "ok", "candidates": 1 },
     { "type": "literal", "status": "ok", "candidates": 1 },
-    { "type": "vector", "status": "ok", "model": "...", "dimensions": 4096, "candidates": 1 }
+    { "type": "vector", "status": "ok", "model": "...", "dimensions": 1024, "candidates": 1 }
   ],
   "filters": {
     "source_id": "source-id",

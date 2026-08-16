@@ -22,6 +22,7 @@ apps/web/design-system/
 .superpowers/
 test-results/
 playwright-report/
+/openspec/
 
 # Local runtime state (never commit the live watchdog PID)
 workspace/.watchdog.pid

@@ -571,6 +571,6 @@ bun run dev:graph-rag
 
 实测注意：
 
-- `embo-01` 模型原生 embedding 维度为 4096，但 GraphRAG 当前通过 `EMBEDDING_DIMENSIONS=1024` 降维使用（默认亦为 1024）。
+- `embo-01` 模型原生 embedding 维度为 1536；GraphRAG 当前通过 `EMBEDDING_DIMENSIONS=1024` 做 MRL 截断并 L2 归一化（默认亦为 1024）。
 - pgvector 标准 HNSW 索引不支持超过 2000 维的普通 vector；GraphRAG **已默认创建 HNSW 索引**（`POSTGRES_VECTOR_INDEX_TYPE=HNSW`，见 C-A1/台账 I67），依赖 embedding 维度 ≤2000（当前 1024 满足）。若改用 >2000 维需切 `HNSW_HALFVEC` 或关闭索引。
 - LightRAG 首次插入和首次查询会调用外部 LLM/embedding API，耗时可能达到几十秒。Agent Gateway 中 GraphRAG MCP tool 默认超时为 300000 ms。

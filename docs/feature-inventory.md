@@ -2,9 +2,9 @@
 
 ## 1. 范围与计数规则
 
-本表是产品能力目录。每个带稳定编号的数据行算一个可独立验收项；标题、说明和汇总不计数。编号在持续演进中保持稳定，删除项保留编号并记录处置。所有条目均给出所有者、权限或边界、持久化位置和验证方式。
+本表是当前产品能力目录，不是发布通过清单。每个带稳定编号的数据行算一个可独立验收项；标题、说明和汇总不计数。编号在持续演进中保持稳定，删除项保留编号并记录处置。所有条目均给出所有者、权限或边界、持久化位置和建议验证方式；当前证据状态见 [能力覆盖台账](capability-coverage.md) 与 [当前状态](CURRENT_STATUS.md)。
 
-覆盖区域共 8 个：web、api、agent-gateway、nano-brain、traditional-rag、graph-rag、packages/platform、deploy。功能项共 **279**：页面 39、HTTP 接口 103、持久化 68、脚本与运维 45、横切能力 24。
+目录区域共 8 个：web、api、agent-gateway、nano-brain、traditional-rag、graph-rag、packages/platform、deploy。功能项共 **279**：页面 39、HTTP 接口 103、持久化 68、脚本与运维 45、横切能力 24。目录条目保持稳定编号，但每条能力的证据状态会随新验证结果更新。
 
 通用页面状态：每个受保护页面必须覆盖 loading、empty、success、error、forbidden；未登录跳转登录页，角色入口由服务端身份决定，权限不依赖隐藏按钮。
 
@@ -318,13 +318,15 @@
 
 ## 7. 可执行验收矩阵
 
+验收状态使用以下四个值，并与能力覆盖台账保持一致：**已实现**（代码或配置存在）、**已自动验证**（本地测试或静态检查通过）、**已真实环境验证**（真实服务/数据库/容器检查通过）、**待验证**（尚无足够证据）。下表是验收方法与当前证据的边界；具体条目状态不由“验证方法”字段自动推导。
+
 - TypeScript：`bun test` 覆盖全部 `*.test.ts`。
 - Python：两个 Python 模块分别运行测试套件。
 - 平台端到端：`bun run smoke:platform` 覆盖知识页面、文档知识、关系知识及引用命中。
 - 浏览器：Playwright 覆盖 39 个页面的路由、五态、响应式布局与角色跳转。
 - 数据与权限：逐库迁移、表/索引、连接拒绝、行级查询边界及管理员能力检查。
 - 部署：web、api、agent-gateway、nano-brain、traditional-rag、graph-rag、postgres、neo4j 八个核心容器 healthy；一次性迁移任务成功退出。
-- 分章运行：`notebooks/01-document-retrieval.ipynb`、`02-graph-and-knowledge-pages.ipynb`、`03-agent-orchestration.ipynb`、`04-deployment-and-permissions.ipynb` 的可运行单元逐项通过。
+- 分章运行：规划中的 notebook 验收需要在相应文件存在后逐项执行；当前 `notebooks/` 只有 README，因此该项为“待验证”。
 
 ## 8. 汇总复算
 
