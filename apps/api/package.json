@@ -1,0 +1,17 @@
+{
+  "name": "@mcb/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts"
+  },
+  "dependencies": {
+    "@mcb/contracts": "workspace:*",
+    "@mcb/gateway": "workspace:*",
+    "@mcb/identity": "workspace:*",
+    "@mcb/platform": "workspace:*",
+    "@hono/node-server": "latest",
+    "hono": "latest"
+  }
+}

@@ -1,0 +1,14 @@
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS ingest_queue;
+DROP TABLE IF EXISTS platform_config;
+DROP TABLE IF EXISTS chat_traces;
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS admin_templates;
+DROP TABLE IF EXISTS scenario_chat_sessions;
+DROP TABLE IF EXISTS global_chat_sessions;
+DROP TABLE IF EXISTS module_references;
+DROP TABLE IF EXISTS knowledge_objects;
+DROP TABLE IF EXISTS parsed_artifacts;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS scenarios;

@@ -1,0 +1,71 @@
+import { MINIMAX_CHAT_MODEL, MINIMAX_CHAT_BASE_URL } from '../../../../packages/minimax/src/index.ts';
+
+export type AgentProvider = 'openai-compatible';
+
+export type AgentModelConfig = {
+  provider: AgentProvider;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  temperature: number;
+  streamUsage: boolean;
+};
+
+export class AgentConfigError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'missing_config' | 'unsupported_provider' | 'invalid_config' = 'missing_config',
+  ) {
+    super(message);
+    this.name = 'AgentConfigError';
+  }
+}
+
+function readRequiredEnv(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name]?.trim();
+  if (!value) {
+    throw new AgentConfigError(`未配置 ${name}，无法初始化 Agent 模型`, 'missing_config');
+  }
+  return value;
+}
+
+function readTemperature(env: NodeJS.ProcessEnv): number {
+  const raw = env.AGENT_TEMPERATURE?.trim();
+  if (!raw) return 0;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 2) {
+    throw new AgentConfigError('AGENT_TEMPERATURE 必须是 0 到 2 之间的数字', 'invalid_config');
+  }
+  return value;
+}
+
+export function getAgentModelConfig(env: NodeJS.ProcessEnv = process.env): AgentModelConfig {
+  // MiniMax is the only supported provider. Keep `openai-compatible` as the
+  // public provider label for LangChain while accepting the historical
+  // `minimax` environment value used by the deployment template.
+  const configuredProvider = env.AGENT_PROVIDER?.trim() || 'minimax';
+  if (configuredProvider !== 'openai-compatible' && configuredProvider !== 'minimax') {
+    throw new AgentConfigError(
+      `AGENT_PROVIDER=${configuredProvider} 暂不支持；仅支持 MiniMax OpenAI-compatible`,
+      'unsupported_provider',
+    );
+  }
+
+  const model = readRequiredEnv(env, 'AGENT_MODEL');
+  if (model !== MINIMAX_CHAT_MODEL) {
+    throw new AgentConfigError(
+      `AGENT_MODEL 必须是 ${MINIMAX_CHAT_MODEL}`,
+      'unsupported_provider',
+    );
+  }
+
+  return {
+    provider: 'openai-compatible',
+    baseUrl: env.AGENT_BASE_URL?.trim() || MINIMAX_CHAT_BASE_URL,
+    apiKey: readRequiredEnv(env, 'AGENT_API_KEY'),
+    model,
+    temperature: readTemperature(env),
+    // OpenAI-compatible proxy / router 常不支持 stream_options；默认关闭 usage streaming。
+    streamUsage: env.AGENT_STREAM_USAGE === 'true',
+  };
+}

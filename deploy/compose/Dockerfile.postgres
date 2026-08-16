@@ -1,0 +1,23 @@
+# PostgreSQL 17 with both vector search and Apache AGE available to the
+# migration gate.  The base image keeps the official PostgreSQL entrypoint;
+# extensions are installed from the PostgreSQL project's signed repository.
+FROM pgvector/pgvector:0.8.2-pg17-bookworm
+
+ARG PGDG_CODENAME=bookworm
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    install -d /usr/share/postgresql-common/pgdg; \
+    curl --fail --silent --show-error --location \
+      https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; \
+    printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$PGDG_CODENAME" \
+      > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends postgresql-17-age; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+
+# Fail the image build if the two required extension control files are absent.
+RUN test -f /usr/share/postgresql/17/extension/vector.control \
+ && test -f /usr/share/postgresql/17/extension/age.control

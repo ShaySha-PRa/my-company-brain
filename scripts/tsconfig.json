@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@mcb/contracts": ["../packages/contracts/src/index.ts"],
+      "@mcb/gateway": ["../packages/gateway/src/index.ts"],
+      "@mcb/identity": ["../packages/identity/src/index.ts"],
+      "@mcb/platform": ["../packages/platform/src/index.ts"],
+      "@mcb/platform/*": ["../packages/platform/src/*"],
+      "@mcb/nano-brain": ["../modules/nano-brain/src/index.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}

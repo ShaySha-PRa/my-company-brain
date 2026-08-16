@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "mcb-database-v1",
+  "postgres": {
+    "versionMajor": 17,
+    "bootstrapRole": "postgres",
+    "migratorRole": "mcb_migrator",
+    "approvedExtensions": ["vector", "pg_trgm", "age"],
+    "databases": [
+      {"name":"mcb_identity_db","runtimeRole":"mcb_identity_app","migrationKey":"identity","passwordEnv":"MCB_IDENTITY_DATABASE_PASSWORD","extensions":[],"coreTables":["organizations","users","teams","user_team_memberships","sessions"]},
+      {"name":"mcb_core_db","runtimeRole":"mcb_platform_app","migrationKey":"core","passwordEnv":"MCB_CORE_DATABASE_PASSWORD","extensions":[],"coreTables":["scenarios","tasks","files","parsed_artifacts","knowledge_objects","module_references","global_chat_sessions","scenario_chat_sessions","admin_templates","audit_events","chat_traces","platform_config","ingest_queue","notifications"]},
+      {"name":"mcb_nano_db","runtimeRole":"mcb_nano_app","migrationKey":"nano","passwordEnv":"MCB_NANO_DATABASE_PASSWORD","extensions":["vector"],"coreTables":["sources","pages","chunks","links","fact_submissions","facts","audit_logs","dream_locks","dream_runs","dream_phase_runs","page_dream_state","raw_documents","raw_chunks","page_provenance","page_members","raw_document_compile_state","link_suppressions","page_versions","fact_conflicts"]},
+      {"name":"mcb_traditional_db","runtimeRole":"mcb_traditional_app","migrationKey":"traditional","passwordEnv":"MCB_TRADITIONAL_DATABASE_PASSWORD","extensions":["vector","pg_trgm"],"coreTables":["traditional_sources","traditional_documents","traditional_jobs","traditional_chunks","traditional_tables","traditional_table_rows","traditional_structured_rows"]},
+      {"name":"mcb_graph_db","runtimeRole":"mcb_graph_app","migrationKey":"graph","passwordEnv":"MCB_GRAPH_DATABASE_PASSWORD","extensions":["vector","age"],"coreTables":["graph_sources","graph_documents","graph_extraction_review","lightrag_doc_status","lightrag_doc_full","lightrag_doc_chunks","lightrag_full_entities","lightrag_full_relations","lightrag_entity_chunks","lightrag_relation_chunks","lightrag_llm_cache","lightrag_vdb_chunks_workspace","lightrag_vdb_entity_workspace","lightrag_vdb_relation_workspace"]},
+      {"name":"mcb_agent_db","runtimeRole":"mcb_agent_app","migrationKey":"agent","passwordEnv":"MCB_AGENT_DATABASE_PASSWORD","extensions":[],"coreTables":["agent_conversations","agent_runs","agent_tool_calls","checkpoint_migrations","checkpoints","checkpoint_blobs","checkpoint_writes"]}
+    ]
+  },
+  "indexes": {"vectorDimensions":1024,"vectorDistance":"cosine","vectorAccessMethod":"hnsw","textAccessPaths":["tsvector","trigram"]},
+  "requiredIndexes": {
+    "mcb_nano_db":{"hnswCosine":["idx_nano_chunks_embedding","idx_nano_facts_embedding"],"fullText":["idx_nano_chunks_search"],"trigram":["idx_nano_chunks_trigram"]},
+    "mcb_traditional_db":{"hnswCosine":["idx_traditional_chunks_embedding"],"fullText":["idx_traditional_chunks_search"],"trigram":["idx_traditional_chunks_trigram"]},
+    "mcb_graph_db":{"hnswCosine":["idx_graph_doc_chunks_embedding","idx_graph_entity_chunks_embedding","idx_graph_relation_chunks_embedding","idx_graph_vdb_chunks_embedding","idx_graph_vdb_entity_embedding","idx_graph_vdb_relation_embedding"]}
+  },
+  "objects": {
+    "mcb_identity_db":["organizations","users","teams","user_team_memberships","sessions"],
+    "mcb_core_db":["scenarios","tasks","files","parsed_artifacts","knowledge_objects","module_references","global_chat_sessions","scenario_chat_sessions","admin_templates","audit_events","chat_traces","platform_config","ingest_queue","notifications"],
+    "mcb_nano_db":["sources","pages","chunks","links","fact_submissions","facts","audit_logs","dream_locks","dream_runs","dream_phase_runs","page_dream_state","raw_documents","raw_chunks","page_provenance","page_members","raw_document_compile_state","link_suppressions","page_versions","fact_conflicts"],
+    "mcb_traditional_db":["traditional_sources","traditional_documents","traditional_jobs","traditional_chunks","traditional_tables","traditional_table_rows","traditional_structured_rows"],
+    "mcb_graph_db":["graph_sources","graph_documents","graph_extraction_review","lightrag_doc_status","lightrag_doc_full","lightrag_doc_chunks","lightrag_full_entities","lightrag_full_relations","lightrag_entity_chunks","lightrag_relation_chunks","lightrag_llm_cache","lightrag_vdb_chunks_workspace","lightrag_vdb_entity_workspace","lightrag_vdb_relation_workspace"],
+    "mcb_agent_db":["agent_conversations","agent_runs","agent_tool_calls","checkpoint_migrations","checkpoints","checkpoint_blobs","checkpoint_writes"]
+  },
+  "graphStore":{"objects":["entities","relationships"]},
+  "ownedObjectCount":68
+}

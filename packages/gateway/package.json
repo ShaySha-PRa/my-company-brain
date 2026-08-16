@@ -1,0 +1,9 @@
+{
+  "name": "@mcb/gateway",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@mcb/contracts": "workspace:*"
+  }
+}

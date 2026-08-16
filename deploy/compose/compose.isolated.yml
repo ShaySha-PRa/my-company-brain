@@ -1,0 +1,22 @@
+# Destructive isolated stack/STACK_CHECK probes must render this overlay in addition to
+# compose.member.yml. The required prefix prevents the base file's explicit
+# local volume names from accidentally attaching a probe to the shared stack.
+volumes:
+  postgres_data:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_postgres_data"
+  neo4j_data:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_neo4j_data"
+  neo4j_plugins:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_neo4j_plugins"
+  platform_files:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_platform_files"
+  traditional_files:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_traditional_files"
+  graph_workdir:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_graph_workdir"
+
+networks:
+  service_internal:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_internal"
+  service_egress:
+    name: "${MCB_ISOLATION_VOLUME_PREFIX:?set a unique mcb_isolated_... prefix}_egress"

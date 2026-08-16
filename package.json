@@ -1,0 +1,42 @@
+{
+  "name": "my-company-brain",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "modules/nano-brain",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "check:structure": "bun test scripts/check-structure.test.ts",
+    "check:naming": "bun scripts/check-naming.ts --root . --patterns ./forbidden-words.txt",
+    "test:ts": "bun test",
+    "typecheck:ts": "bun x tsc --noEmit -p apps/web/tsconfig.json && bun x tsc --noEmit -p apps/api/tsconfig.json && bun x tsc --noEmit -p apps/agent-gateway/tsconfig.json && bun x tsc --noEmit -p modules/nano-brain/tsconfig.json && bun x tsc --noEmit -p packages/config/tsconfig.json && bun x tsc --noEmit -p packages/contracts/tsconfig.json && bun x tsc --noEmit -p packages/identity/tsconfig.json && bun x tsc --noEmit -p scripts/tsconfig.json",
+    "test:python": "uv run --project modules/traditional-rag --directory . pytest modules/traditional-rag/tests && uv run --project modules/graph-rag --directory . pytest modules/graph-rag/tests",
+    "typecheck:python": "uv run --project modules/traditional-rag --directory . mypy --config-file modules/traditional-rag/pyproject.toml modules/traditional-rag/src modules/traditional-rag/tests && uv run --project modules/graph-rag --directory . mypy --config-file modules/graph-rag/pyproject.toml modules/graph-rag/src modules/graph-rag/tests",
+    "db:initialize": "bun scripts/database.ts initialize",
+    "db:init": "bun scripts/init-db.ts",
+    "db:migrate": "bun scripts/database.ts migrate",
+    "db:rollback": "bun scripts/database.ts rollback",
+    "db:status": "bun scripts/database.ts status",
+    "db:verify": "bun scripts/database.ts verify",
+    "db:fixtures": "bun scripts/permission-fixtures.ts",
+    "db:fixtures:load": "bun scripts/permission-fixtures.ts load",
+    "db:fixtures:probe": "bun scripts/permission-fixtures.ts probe",
+    "admin:create": "bun scripts/create-admin.ts",
+    "dev:all": "bash scripts/start-dev.sh",
+    "smoke:health": "bun scripts/smoke-health.ts",
+    "smoke:platform": "bun scripts/smoke-platform-scenario.ts",
+    "verify:foundation": "bun run check:structure && bun run check:naming && bun run test:ts && bun run typecheck:ts && bun run test:python && bun run typecheck:python && bun run smoke:health",
+    "verify:full": "bun run check:structure && bun run check:naming && bun run test:ts && bun run typecheck:ts && bun run test:python && bun run typecheck:python && bun run db:verify && bun run smoke:platform"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "bun-types": "^1.3.14",
+    "typescript": "^7.0.2",
+    "pg": "^8.16.3"
+  }
+}

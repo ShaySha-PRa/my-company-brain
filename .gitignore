@@ -1,0 +1,42 @@
+node_modules
+.env
+.env.local
+.env.docker.local
+**/.env.docker.local
+.env.bak-*
+.DS_Store
+dist
+.next
+*.log
+.venv
+__pycache__
+*.pyc
+*.tsbuildinfo
+/archive/
+output/
+.pi
+.traditional-rag-storage/
+.platform-data/
+apps/web/.platform-data/
+apps/web/design-system/
+.superpowers/
+test-results/
+playwright-report/
+
+# Local runtime state (never commit the live watchdog PID)
+workspace/.watchdog.pid
+
+# Vendored tokenizer files (tokenizer.json and config are downloaded locally, not tracked)
+assets/tokenizers/
+eval/route-optimization/.venv/
+
+# Local research cache and generated reports are retained on disk but not tracked.
+# This includes knowledge text, ledgers, specifications, traces, assets, and test reports.
+PKP/
+PKP.zip
+FIX_REPORT.md
+TEST_REPORT.md
+PROJECT_SCAN.md
+
+# Public Compose example is tracked; its generated private counterpart is not.
+!deploy/database/.env.docker.example

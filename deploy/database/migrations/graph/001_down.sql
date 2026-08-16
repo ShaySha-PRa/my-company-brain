@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS mcb.lightrag_vdb_relation_workspace;
+DROP TABLE IF EXISTS mcb.lightrag_vdb_entity_workspace;
+DROP TABLE IF EXISTS mcb.lightrag_vdb_chunks_workspace;
+DROP TABLE IF EXISTS lightrag_llm_cache;
+DROP TABLE IF EXISTS lightrag_relation_chunks;
+DROP TABLE IF EXISTS lightrag_entity_chunks;
+DROP TABLE IF EXISTS lightrag_full_relations;
+DROP TABLE IF EXISTS lightrag_full_entities;
+DROP TABLE IF EXISTS lightrag_doc_chunks;
+DROP TABLE IF EXISTS lightrag_doc_full;
+DROP TABLE IF EXISTS lightrag_doc_status;
+DROP TABLE IF EXISTS graph_extraction_review;
+DROP TABLE IF EXISTS graph_documents;
+DROP TABLE IF EXISTS graph_sources;
+DROP SCHEMA IF EXISTS mcb;

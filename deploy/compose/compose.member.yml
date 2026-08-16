@@ -1,0 +1,47 @@
+name: mcb
+
+services:
+  postgres:
+    extends: { file: compose.base.yml, service: postgres }
+    image: ${MCB_IMAGE_PREFIX:?set MCB_IMAGE_PREFIX in deploy/compose/.env}/postgres:${MCB_IMAGE_TAG:?set MCB_IMAGE_TAG in deploy/compose/.env}
+  neo4j:
+    extends: { file: compose.base.yml, service: neo4j }
+  migrate:
+    extends: { file: compose.base.yml, service: migrate }
+  nano-brain:
+    extends: { file: compose.base.yml, service: nano-brain }
+  traditional-rag:
+    extends: { file: compose.base.yml, service: traditional-rag }
+  graph-rag:
+    extends: { file: compose.base.yml, service: graph-rag }
+  api:
+    extends: { file: compose.base.yml, service: api }
+    environment:
+      API_PORT: "3101"
+      MCB_API_PORT: "3101"
+    expose:
+      - "3101"
+    healthcheck:
+      test: ["CMD-SHELL", "bun -e \"fetch('http://127.0.0.1:3101/health').then((r) => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))\""]
+  agent-gateway:
+    extends: { file: compose.base.yml, service: agent-gateway }
+    environment:
+      AGENT_GATEWAY_PORT: "3002"
+      MCB_AGENT_PORT: "3002"
+  web:
+    extends: { file: compose.base.yml, service: web }
+    environment:
+      API_INTERNAL_BASE_URL: http://api:3101
+      MCB_PUBLIC_API_BASE_URL: http://127.0.0.1:3101
+
+volumes:
+  postgres_data: { name: mcb_postgres_data }
+  neo4j_data: { name: mcb_neo4j_data }
+  neo4j_plugins: { name: mcb_neo4j_plugins }
+  platform_files: { name: mcb_platform_files }
+  traditional_files: { name: mcb_traditional_files }
+  graph_workdir: { name: mcb_graph_workdir }
+
+networks:
+  service_internal: { name: mcb-internal, internal: true }
+  service_egress: { name: mcb-egress }

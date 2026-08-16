@@ -1,0 +1,92 @@
+# My Company Brain — 品牌与内容审计词表
+# 用法：对本项目自有仓库（代码/文档/数据/脚本/配置）做不区分大小写的逐词扫描，
+#       每个词命中即为失败；审计配置自身、生成缓存和 Git 历史不纳入扫描。
+# 命中判定建议：整词/子串匹配均可（先子串匹配，误报时人工复核再收窄为整词）。
+# 格式：每行一个词；# 开头为注释。
+
+# ---- 禁止的产品/项目标识 ----
+ff-companybrain
+ff_companybrain
+FFCompanyBrain
+ff_company_brain
+ffcompanybrain
+
+# ---- 禁止的内部头 / token 前缀 ----
+x-ff-internal-token
+x-ff-user-id
+x-ff-username
+x-ff-is-admin
+x-ff-
+
+# ---- 禁止的命名空间 ----
+ff_
+
+# ---- 禁止的内容措辞 ----
+课件
+课程
+学员
+教学
+课堂
+讲师
+教程配套
+
+# ---- 禁止的外部示例实体名 ----
+赋范
+青屿
+赤帆
+雾桥
+蓝鲸
+梧桐
+星河
+曜石
+星海
+muyu
+wutong
+xinghe
+yaoshi
+zhangsan
+lisi
+wangwu
+张三
+李四
+王五
+林知
+苏杭
+周澈
+
+# ---- 禁止的测试账号 / 数据标记 ----
+student01
+student02
+student03
+student04
+student05
+student06
+student07
+student08
+student09
+student10
+student11
+student12
+student13
+student14
+student15
+perm_a6b5
+perm_spec
+m5-
+m5_
+M5
+
+# ---- 禁止的内部编号 / 分支名 ----
+l3-e2e
+l3-fact
+nano-course
+coursedemo
+conv-demo
+lesson3-
+selftest
+
+# ---- 保留允许项（不视为违规，供扫描器排除）----
+# mcb（本项目命名空间，允许）
+# admin（通用角色，允许）
+# traditional-rag / graph-rag / nano-brain / agent-gateway（中性技术名，允许）
+# MiniMax / embo-01 / LightRAG / pgvector / Neo4j / AGE（技术名词，允许）

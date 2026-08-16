@@ -1,0 +1,8 @@
+[
+  { "status": "ok", "service": "web", "version": "0.1.0" },
+  { "status": "ok", "service": "api", "version": "0.1.0" },
+  { "status": "ok", "service": "agent-gateway", "version": "0.1.0" },
+  { "status": "ok", "service": "nano-brain", "version": "0.1.0" },
+  { "status": "ok", "service": "traditional-rag", "version": "0.1.0" },
+  { "status": "ok", "service": "graph-rag", "version": "0.1.0" }
+]

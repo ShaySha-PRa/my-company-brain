@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS user_team_memberships;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS organizations;

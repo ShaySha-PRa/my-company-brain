@@ -1,0 +1,14 @@
+{
+  "name": "@mcb/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@mcb/contracts": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test src",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
